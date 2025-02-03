@@ -19,14 +19,15 @@ typedef struct {
 #define COLOR_BLACK (color){.r = 0, .g = 0, .b = 0}
 #define COLOR_LBLUE (color){.r = 173, .g = 216, .b = 230}
 
-#define TEX_NONE COLOR_BLACK
-#define TEX_BUCKET COLOR_WHITE
-#define TEX_WATER COLOR_LBLUE
+typedef enum {
+  TEX_BUCKET,
+  TEX_WATER,
+  TEX_NONE,
+} texture;
 
 typedef struct {
   int x, y;
-  int none;
-  color texture;
+  texture texture;
 } cell;
 
 void fluid_initialize_static(SDL_Renderer *renderer);
