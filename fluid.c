@@ -1,10 +1,12 @@
 #include "fluid.h"
 #include "SDL_events.h"
 #include "SDL_render.h"
+#include "SDL_scancode.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 static cell WORLD[CELL_COUNT_H * CELL_COUNT_W] = {0};
+static cell SECOND_WORLD[CELL_COUNT_H * CELL_COUNT_W] = {0};
 
 static void fluid_color_set(SDL_Renderer *renderer, const color *color) {
   SDL_SetRenderDrawColor(renderer, color->r, color->g, color->b, 255);
@@ -60,6 +62,65 @@ static void fluid_cell_update(SDL_Renderer *renderer, int x, int y,
   }
 }
 
+void fluid_initialize_static(SDL_Renderer *renderer) {
+  for (size_t h = 0; h < CELL_COUNT_H; h++) {
+    for (size_t w = 0; w < CELL_COUNT_W; w++) {
+      WORLD[h * CELL_COUNT_W + w] =
+          (cell){.x = w, .y = h, .texture = TEX_NONE, .fill_level = 0.0};
+      SECOND_WORLD[h * CELL_COUNT_W + w] =
+          (cell){.x = w, .y = h, .texture = TEX_NONE, .fill_level = 0.0};
+    }
+  }
+}
+
+void fluid_first_world_to_second() {
+  for (size_t p = 0; p < CELL_COUNT_H * CELL_COUNT_W; p++)
+    SECOND_WORLD[p] = WORLD[p];
+}
+
+void fluid_second_world_to_first() {
+  for (size_t p = 0; p < CELL_COUNT_H * CELL_COUNT_W; p++)
+    WORLD[p] = SECOND_WORLD[p];
+}
+
+void fluid_simulate_step(SDL_Renderer *renderer) {
+  fluid_first_world_to_second();
+  for (size_t h = 0; h < CELL_COUNT_H; h++) {
+    for (size_t w = 0; w < CELL_COUNT_W; w++) {
+      int here = h * CELL_COUNT_W + w;
+      cell *c = &WORLD[here];
+      if (c->texture != TEX_WATER)
+        continue;
+
+      int here_fill = c->fill_level;
+      if (here_fill == 0)
+        continue;
+
+      int right_below = (h + 1) * CELL_COUNT_W + w;
+      if (right_below >= CELL_COUNT_W * CELL_COUNT_H)
+        continue;
+
+      cell *c_below = &WORLD[right_below];
+      if (c_below->texture == TEX_BUCKET)
+        continue;
+
+      int below_fill = c_below->fill_level;
+      if (here_fill <= below_fill) {
+        continue;
+      }
+      float to_fill = here_fill - below_fill;
+
+      cell *second_c = &SECOND_WORLD[here];
+      cell *second_c_below = &SECOND_WORLD[right_below];
+
+      second_c->fill_level -= to_fill;
+      second_c_below->fill_level += to_fill;
+      second_c_below->texture = TEX_WATER;
+    }
+  }
+  fluid_second_world_to_first();
+}
+
 void fluid_event_handle(SDL_Renderer *renderer, SDL_Event *e) {
   static int d;
   static texture texture = TEX_NONE;
@@ -79,47 +140,8 @@ void fluid_event_handle(SDL_Renderer *renderer, SDL_Event *e) {
     } else if (e->key.keysym.scancode == SDL_SCANCODE_3) {
       texture = TEX_NONE;
     }
-  }
-}
-
-void fluid_initialize_static(SDL_Renderer *renderer) {
-  for (size_t h = 0; h < CELL_COUNT_H; h++) {
-    for (size_t w = 0; w < CELL_COUNT_W; w++) {
-      WORLD[h * CELL_COUNT_W + w] =
-          (cell){.x = w, .y = h, .texture = TEX_NONE, .fill_level = 0.0};
-    }
-  }
-}
-
-void fluid_simulate_step(SDL_Renderer *renderer) {
-  for (size_t h = 0; h < CELL_COUNT_H; h++) {
-    for (size_t w = 0; w < CELL_COUNT_W; w++) {
-      cell *c = &WORLD[h * CELL_COUNT_W + w];
-      if (c->texture != TEX_WATER)
-        continue;
-
-      int here_available = c->fill_level;
-      if (here_available < 0)
-        continue;
-
-      int right_below = (h + 1) * CELL_COUNT_W + w;
-      if (right_below >= CELL_COUNT_W * CELL_COUNT_H)
-        continue;
-
-      cell *c_below = &WORLD[right_below];
-      int below_available = 1 - c_below->fill_level;
-
-      if (here_available >= below_available) {
-        int filling = here_available - below_available;
-        c->fill_level -= filling;
-        c_below->fill_level += filling;
-        c_below->texture = TEX_WATER;
-      } else {
-        int filling = here_available;
-        c->fill_level -= filling;
-        c_below->fill_level += filling;
-        c_below->texture = TEX_WATER;
-      }
+    if (e->key.keysym.scancode == SDL_SCANCODE_N && !e->key.repeat) {
+      fluid_simulate_step(renderer);
     }
   }
 }
@@ -127,5 +149,5 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
 void fluid_render(SDL_Renderer *renderer) {
   fluid_render_world(renderer);
   fluid_render_grid(renderer);
-  fluid_simulate_step(renderer);
+  // fluid_simulate_step(renderer);
 }
