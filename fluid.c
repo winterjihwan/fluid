@@ -33,6 +33,7 @@ static void fluid_render_cell(SDL_Renderer *renderer, cell *cell) {
   color color = fluid_tex_color(cell->texture);
   fluid_color_set(renderer, &color);
 
+  float fill_level = cell->below_blocked ? 1 : cell->fill_level;
   int y = cell->texture == TEX_WATER
               ? (cell->y + (1 - cell->fill_level)) * CELL_SIZE
               : cell->y * CELL_SIZE;
@@ -93,20 +94,24 @@ void fluid_simulate_below_step(SDL_Renderer *renderer) {
 
       // Rule #1: Flow below
       int below = (h + 1) * CELL_COUNT_W + w;
-      if (below >= CELL_COUNT_W * CELL_COUNT_H)
-        continue;
-
+      cell *second_c = &SECOND_WORLD[here];
       cell *c_below = &WORLD[below];
-      if (c_below->texture == TEX_BUCKET)
+      cell *second_c_below = &SECOND_WORLD[below];
+
+      if (below >= CELL_COUNT_W * CELL_COUNT_H) {
+        second_c->below_blocked = 1;
         continue;
+      }
+      if (c_below->texture == TEX_BUCKET) {
+        second_c->below_blocked = 1;
+        continue;
+      }
 
       float below_fill = c_below->fill_level;
       if (here_fill <= below_fill)
         continue;
 
-      cell *second_c = &SECOND_WORLD[here];
-      cell *second_c_below = &SECOND_WORLD[below];
-
+      second_c->below_blocked = 0;
       float to_fill = here_fill - below_fill;
       second_c->fill_level -= to_fill;
       second_c_below->fill_level += to_fill;
@@ -132,6 +137,9 @@ void fluid_simulate_side_step(SDL_Renderer *renderer) {
       if (w <= 0 || w >= CELL_COUNT_W)
         continue;
 
+      if (!c->below_blocked)
+        continue;
+
       int left = h * CELL_COUNT_W + w - 1;
       int right = h * CELL_COUNT_W + w + 1;
       cell *c_left = &WORLD[left];
@@ -152,19 +160,19 @@ void fluid_simulate_side_step(SDL_Renderer *renderer) {
       float to_lfill = 0;
       float to_rfill = 0;
 
-      if (!lfill_possible || !rfill_possible)
+      if (!lfill_possible && !rfill_possible)
         continue;
 
       if (lfill_possible && !rfill_possible)
-        to_lfill += to_fill;
-      if (!lfill_possible && rfill_possible)
-        to_rfill += to_fill;
-      if (lfill_possible && rfill_possible) {
         to_lfill += to_fill / 2;
+      if (!lfill_possible && rfill_possible)
         to_rfill += to_fill / 2;
+      if (lfill_possible && rfill_possible) {
+        to_lfill += to_fill / 4;
+        to_rfill += to_fill / 4;
       }
 
-      second_c->fill_level -= to_fill;
+      second_c->fill_level -= to_fill / 2;
       second_c_left->fill_level += to_lfill;
       second_c_right->fill_level += to_rfill;
     }
@@ -185,10 +193,21 @@ void fluid_simulate_above_step(SDL_Renderer *renderer) {
       if (here_fill == 0)
         continue;
 
-      // Rule #2: Flow above
-      int below = (h + 1) * CELL_COUNT_W + w;
-      if (below >= CELL_COUNT_W * CELL_COUNT_H)
-        continue;
+      if (h <= 0) {
+        fprintf(stdout, "Overflow water above screen");
+        exit(1);
+      }
+
+      int above = (h - 1) * CELL_COUNT_W + w;
+      cell *second_c = &SECOND_WORLD[here];
+      cell *second_c_above = &SECOND_WORLD[above];
+
+      // Rule #3: Flow above
+      if (here_fill > 1) {
+        float to_fill = here_fill - 1.0;
+        second_c->fill_level -= to_fill;
+        second_c_above->fill_level += to_fill;
+      }
     }
   }
   fluid_second_world_to_first();

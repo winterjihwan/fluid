@@ -30,6 +30,7 @@ typedef struct {
 
   // [0, 1]
   float fill_level;
+  int below_blocked;
 } cell;
 
 void fluid_initialize_static(SDL_Renderer *renderer);
