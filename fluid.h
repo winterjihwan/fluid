@@ -14,10 +14,20 @@ typedef struct {
   float r, g, b;
 } color;
 
-#define COLOR_WHITE (color){.r = 255, .g = 255, .b = 255}
-#define COLOR_GRAY (color){.r = 130, .g = 130, .b = 130}
-#define COLOR_BLACK (color){.r = 0, .g = 0, .b = 0}
-#define COLOR_LBLUE (color){.r = 173, .g = 216, .b = 230}
+#define COLOR_WHITE                                                            \
+  (color) { .r = 255, .g = 255, .b = 255 }
+#define COLOR_GRAY                                                             \
+  (color) { .r = 80, .g = 80, .b = 80 }
+#define COLOR_BLACK                                                            \
+  (color) { .r = 0, .g = 0, .b = 0 }
+#define COLOR_LBLUE                                                            \
+  (color) { .r = 173, .g = 216, .b = 230 }
+
+#define WORLD_MOV(W1, W2)                                                      \
+  do {                                                                         \
+    for (size_t p = 0; p < CELL_COUNT_H * CELL_COUNT_W; p++)                   \
+      W2[p] = W1[p];                                                           \
+  } while (0);
 
 typedef enum {
   TEX_BUCKET,
@@ -30,7 +40,6 @@ typedef struct {
 
   // [0, 1]
   float fill_level;
-  int below_blocked;
 } cell;
 
 void fluid_initialize_static(SDL_Renderer *renderer);

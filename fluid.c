@@ -33,7 +33,6 @@ static void fluid_render_cell(SDL_Renderer *renderer, cell *cell) {
   color color = fluid_tex_color(cell->texture);
   fluid_color_set(renderer, &color);
 
-  float fill_level = cell->below_blocked ? 1 : cell->fill_level;
   int y = cell->texture == TEX_WATER
               ? (cell->y + (1 - cell->fill_level)) * CELL_SIZE
               : cell->y * CELL_SIZE;
@@ -69,41 +68,29 @@ void fluid_initialize_static(SDL_Renderer *renderer) {
   }
 }
 
-void fluid_first_world_to_second() {
-  for (size_t p = 0; p < CELL_COUNT_H * CELL_COUNT_W; p++)
-    SECOND_WORLD[p] = WORLD[p];
-}
-
-void fluid_second_world_to_first() {
-  for (size_t p = 0; p < CELL_COUNT_H * CELL_COUNT_W; p++)
-    WORLD[p] = SECOND_WORLD[p];
-}
-
-void fluid_simulate_below_step(SDL_Renderer *renderer) {
-  fluid_first_world_to_second();
+void fluid_simulate_step(SDL_Renderer *renderer) {
+  WORLD_MOV(WORLD, SECOND_WORLD);
   for (size_t h = 0; h < CELL_COUNT_H; h++) {
     for (size_t w = 0; w < CELL_COUNT_W; w++) {
       int here = h * CELL_COUNT_W + w;
-      cell *c = &WORLD[here];
-      if (c->texture != TEX_WATER)
+      cell *c_here = &WORLD[here];
+      if (c_here->texture != TEX_WATER)
         continue;
 
-      float here_fill = c->fill_level;
-      if (here_fill == 0)
+      float here_fill = c_here->fill_level;
+      if (here_fill == 0.0f)
         continue;
 
       // Rule #1: Flow below
       int below = (h + 1) * CELL_COUNT_W + w;
-      cell *second_c = &SECOND_WORLD[here];
+      cell *c2_here = &SECOND_WORLD[here];
       cell *c_below = &WORLD[below];
-      cell *second_c_below = &SECOND_WORLD[below];
+      cell *c2_below = &SECOND_WORLD[below];
 
       if (below >= CELL_COUNT_W * CELL_COUNT_H) {
-        second_c->below_blocked = 1;
         continue;
       }
       if (c_below->texture == TEX_BUCKET) {
-        second_c->below_blocked = 1;
         continue;
       }
 
@@ -111,77 +98,63 @@ void fluid_simulate_below_step(SDL_Renderer *renderer) {
       if (here_fill <= below_fill)
         continue;
 
-      second_c->below_blocked = 0;
       float to_fill = here_fill - below_fill;
-      second_c->fill_level -= to_fill;
-      second_c_below->fill_level += to_fill;
-    }
-  }
-  fluid_second_world_to_first();
-}
-
-void fluid_simulate_side_step(SDL_Renderer *renderer) {
-  fluid_first_world_to_second();
-  for (size_t h = 0; h < CELL_COUNT_H; h++) {
-    for (size_t w = 0; w < CELL_COUNT_W; w++) {
-      int here = h * CELL_COUNT_W + w;
-      cell *c = &WORLD[here];
-      if (c->texture != TEX_WATER)
-        continue;
-
-      float here_fill = c->fill_level;
-      if (here_fill == 0)
-        continue;
+      c2_here->fill_level -= to_fill;
+      c2_below->fill_level += to_fill;
 
       // Rule #2: Flow left and right
       if (w <= 0 || w >= CELL_COUNT_W)
-        continue;
-
-      if (!c->below_blocked)
         continue;
 
       int left = h * CELL_COUNT_W + w - 1;
       int right = h * CELL_COUNT_W + w + 1;
       cell *c_left = &WORLD[left];
       cell *c_right = &WORLD[right];
+      cell *c2_left = &SECOND_WORLD[left];
+      cell *c2_right = &SECOND_WORLD[right];
+
       float left_fill = c_left->fill_level;
       float right_fill = c_right->fill_level;
 
-      int lfill_possible =
-          c_left->texture != TEX_BUCKET && here_fill > left_fill;
-      int rfill_possible =
-          c_right->texture != TEX_BUCKET && here_fill > right_fill;
+      int can_lfill = c_left->texture != TEX_BUCKET && here_fill > left_fill;
+      int can_rfill = c_right->texture != TEX_BUCKET && here_fill > right_fill;
 
-      cell *second_c = &SECOND_WORLD[here];
-      cell *second_c_left = &SECOND_WORLD[left];
-      cell *second_c_right = &SECOND_WORLD[right];
-
-      float to_fill = c->fill_level;
+      to_fill = 0;
       float to_lfill = 0;
       float to_rfill = 0;
 
-      if (!lfill_possible && !rfill_possible)
+      if (!can_lfill && !can_rfill)
         continue;
 
-      if (lfill_possible && !rfill_possible)
-        to_lfill += to_fill / 2;
-      if (!lfill_possible && rfill_possible)
-        to_rfill += to_fill / 2;
-      if (lfill_possible && rfill_possible) {
-        to_lfill += to_fill / 4;
-        to_rfill += to_fill / 4;
+      int how_much;
+      if (can_lfill && !can_rfill) {
+        how_much = (here_fill - left_fill) / 2;
+        to_fill += how_much;
+        to_lfill += how_much;
+      } else if (!can_lfill && can_rfill) {
+        how_much = (here_fill - right_fill) / 2;
+        to_fill += how_much;
+        to_rfill += how_much;
+      } else if (can_lfill && can_rfill) {
+        how_much = (here_fill - left_fill) / 4;
+        to_fill += how_much;
+        to_lfill += how_much;
+
+        how_much = (here_fill - right_fill) / 4;
+        to_fill += how_much;
+        to_rfill += how_much;
       }
 
-      second_c->fill_level -= to_fill / 2;
-      second_c_left->fill_level += to_lfill;
-      second_c_right->fill_level += to_rfill;
+      c2_here->fill_level -= to_fill;
+      c2_left->fill_level += to_lfill;
+      c2_right->fill_level += to_rfill;
     }
   }
-  fluid_second_world_to_first();
+  WORLD_MOV(SECOND_WORLD, WORLD);
 }
 
 void fluid_simulate_above_step(SDL_Renderer *renderer) {
-  fluid_first_world_to_second();
+  WORLD_MOV(WORLD, SECOND_WORLD);
   for (size_t h = 0; h < CELL_COUNT_H; h++) {
     for (size_t w = 0; w < CELL_COUNT_W; w++) {
       int here = h * CELL_COUNT_W + w;
@@ -194,7 +167,7 @@ void fluid_simulate_above_step(SDL_Renderer *renderer) {
         continue;
 
       if (h <= 0) {
-        fprintf(stdout, "Overflow water above screen");
+        fprintf(stdout, "Overflow water above screen\n");
         exit(1);
       }
 
@@ -210,7 +183,7 @@ void fluid_simulate_above_step(SDL_Renderer *renderer) {
       }
     }
   }
-  fluid_second_world_to_first();
+  WORLD_MOV(SECOND_WORLD, WORLD);
 }
 
 void fluid_event_handle(SDL_Renderer *renderer, SDL_Event *e) {
@@ -231,9 +204,7 @@ void fluid_event_handle(SDL_Renderer *renderer, SDL_Event *e) {
       texture = TEX_WATER;
     }
     if (e->key.keysym.scancode == SDL_SCANCODE_N && !e->key.repeat) {
-      fluid_simulate_below_step(renderer);
-      fluid_simulate_side_step(renderer);
-      fluid_simulate_above_step(renderer);
+      fluid_simulate_step(renderer);
     }
   }
 }
@@ -241,5 +212,5 @@ void fluid_event_handle(SDL_Renderer *renderer, SDL_Event *e) {
 void fluid_render(SDL_Renderer *renderer) {
   fluid_render_world(renderer);
   fluid_render_grid(renderer);
-  // fluid_simulate_step(renderer);
+  fluid_simulate_step(renderer);
 }
