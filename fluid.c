@@ -35,10 +35,14 @@ static void fluid_render_cell(SDL_Renderer *renderer, cell *cell) {
 
   color color = fluid_tex_color(cell->texture);
   fluid_color_set(renderer, &color);
-  SDL_RenderFillRect(renderer, &(SDL_Rect){.x = cell->x * CELL_SIZE,
-                                           .y = cell->y * CELL_SIZE,
-                                           .w = CELL_SIZE,
-                                           .h = CELL_SIZE});
+
+  int y = cell->texture == TEX_WATER
+              ? (cell->y + (1 - cell->fill_level)) * CELL_SIZE
+              : cell->y * CELL_SIZE;
+  int h = cell->texture == TEX_WATER ? cell->fill_level * CELL_SIZE : CELL_SIZE;
+  SDL_RenderFillRect(
+      renderer,
+      &(SDL_Rect){.x = cell->x * CELL_SIZE, .y = y, .w = CELL_SIZE, .h = h});
 }
 
 static void fluid_render_world(SDL_Renderer *renderer) {
@@ -51,6 +55,9 @@ static void fluid_cell_update(SDL_Renderer *renderer, int x, int y,
   x = x / CELL_SIZE;
   y = y / CELL_SIZE;
   WORLD[y * CELL_COUNT_W + x].texture = texture;
+  if (texture == TEX_WATER) {
+    WORLD[y * CELL_COUNT_W + x].fill_level = 1.0;
+  }
 }
 
 void fluid_event_handle(SDL_Renderer *renderer, SDL_Event *e) {
@@ -78,7 +85,8 @@ void fluid_event_handle(SDL_Renderer *renderer, SDL_Event *e) {
 void fluid_initialize_static(SDL_Renderer *renderer) {
   for (size_t h = 0; h < CELL_COUNT_H; h++) {
     for (size_t w = 0; w < CELL_COUNT_W; w++) {
-      WORLD[h * CELL_COUNT_W + w] = (cell){.x = w, .y = h, .texture = TEX_NONE};
+      WORLD[h * CELL_COUNT_W + w] =
+          (cell){.x = w, .y = h, .texture = TEX_NONE, .fill_level = 0.0};
     }
   }
 }
@@ -87,6 +95,31 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
   for (size_t h = 0; h < CELL_COUNT_H; h++) {
     for (size_t w = 0; w < CELL_COUNT_W; w++) {
       cell *c = &WORLD[h * CELL_COUNT_W + w];
+      if (c->texture != TEX_WATER)
+        continue;
+
+      int here_available = c->fill_level;
+      if (here_available < 0)
+        continue;
+
+      int right_below = (h + 1) * CELL_COUNT_W + w;
+      if (right_below >= CELL_COUNT_W * CELL_COUNT_H)
+        continue;
+
+      cell *c_below = &WORLD[right_below];
+      int below_available = 1 - c_below->fill_level;
+
+      if (here_available >= below_available) {
+        int filling = here_available - below_available;
+        c->fill_level -= filling;
+        c_below->fill_level += filling;
+        c_below->texture = TEX_WATER;
+      } else {
+        int filling = here_available;
+        c->fill_level -= filling;
+        c_below->fill_level += filling;
+        c_below->texture = TEX_WATER;
+      }
     }
   }
 }
@@ -94,4 +127,5 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
 void fluid_render(SDL_Renderer *renderer) {
   fluid_render_world(renderer);
   fluid_render_grid(renderer);
+  fluid_simulate_step(renderer);
 }

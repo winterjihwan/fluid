@@ -28,6 +28,9 @@ typedef enum {
 typedef struct {
   int x, y;
   texture texture;
+
+  // [0, 1]
+  float fill_level;
 } cell;
 
 void fluid_initialize_static(SDL_Renderer *renderer);
