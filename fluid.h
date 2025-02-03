@@ -22,7 +22,6 @@ typedef struct {
 typedef enum {
   TEX_BUCKET,
   TEX_WATER,
-  TEX_NONE,
 } texture;
 
 typedef struct {
