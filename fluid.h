@@ -10,6 +10,11 @@
 #define CELL_COUNT_H (WINDOW_H / CELL_SIZE)
 #define CELL_SIZE 20
 
+#define FLOW_LEVEL_MAX 1.0
+#define FLOW_LEVEL_MIN 0.0001
+#define FLOW_SPEED_MAX 1.0
+#define MAX_COMPRESS 0.02
+
 typedef struct {
   float r, g, b;
 } color;
@@ -28,6 +33,8 @@ typedef struct {
     for (size_t p = 0; p < CELL_COUNT_H * CELL_COUNT_W; p++)                   \
       W2[p] = W1[p];                                                           \
   } while (0);
+
+#define CONSTRAIN(v, min, max) ((v < min) ? min : (v > max) ? max : v)
 
 typedef enum {
   TEX_BUCKET,
