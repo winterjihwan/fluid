@@ -34,15 +34,6 @@ static void fluid_render_cell(SDL_Renderer *renderer, cell *c) {
   color color = fluid_tex_color(c->texture);
   fluid_color_set(renderer, &color);
 
-  float fill_level = c->fill_level;
-  if (c->y > 0 && c->y < CELL_COUNT_H - 1 && c->x > 0 &&
-      c->x < CELL_COUNT_W - 1) {
-    cell *c_above = &WORLD[c->y * CELL_COUNT_W + c->x];
-    cell *c_below = &WORLD[c->y * CELL_COUNT_W + c->x];
-    if (c_above->texture == TEX_WATER && c_below->texture == TEX_WATER)
-      fill_level = 1.0f;
-  }
-
   int y = c->texture == TEX_WATER ? (c->y + (1 - c->fill_level)) * CELL_SIZE
                                   : c->y * CELL_SIZE;
   int h = c->texture == TEX_WATER ? c->fill_level * CELL_SIZE : CELL_SIZE;
@@ -91,11 +82,11 @@ float fluid_stable_state(float flow_level) {
 void fluid_simulate_step(SDL_Renderer *renderer) {
   WORLD_MOV(WORLD, SECOND_WORLD);
 
-  // Rule #1: Flow below
   for (size_t h = 0; h < CELL_COUNT_H; h++) {
     for (size_t w = 0; w < CELL_COUNT_W; w++) {
       int here = h * CELL_COUNT_W + w;
       cell *c_here = &WORLD[here];
+      cell *c2_here = &SECOND_WORLD[here];
       if (c_here->texture != TEX_WATER)
         continue;
 
@@ -104,8 +95,8 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
       if (here_fill <= 0.0f)
         continue;
 
+      // Rule #1: Flow below
       int below = (h + 1) * CELL_COUNT_W + w;
-      cell *c2_here = &SECOND_WORLD[here];
       cell *c_below = &WORLD[below];
       cell *c2_below = &SECOND_WORLD[below];
 
@@ -122,111 +113,65 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
         here_fill -= to_fill;
       }
 
-      if (here_fill < 0)
+      if (here_fill <= 0)
         continue;
 
       // Rule #2: Flow left and right
       int left = h * CELL_COUNT_W + w - 1;
       int right = h * CELL_COUNT_W + w + 1;
+
       cell *c_left = &WORLD[left];
       cell *c_right = &WORLD[right];
       cell *c2_left = &SECOND_WORLD[left];
       cell *c2_right = &SECOND_WORLD[right];
 
-      if (w <= 0) {
+      if (w > 0 && c_left->texture == TEX_WATER) {
+        to_fill = (c_here->fill_level - c_left->fill_level) / 4;
+        if (to_fill > FLOW_LEVEL_MIN)
+          to_fill *= 0.5f;
+        to_fill = CONSTRAIN(to_fill, 0, here_fill);
+
+        c2_here->fill_level -= to_fill;
+        c2_left->fill_level += to_fill;
+        here_fill -= to_fill;
+      }
+
+      if (here_fill <= 0)
+        continue;
+
+      if (w < CELL_COUNT_H - 1 && c_right->texture == TEX_WATER) {
+        to_fill = (c_here->fill_level - c_right->fill_level) / 4;
+        if (to_fill > FLOW_LEVEL_MIN)
+          to_fill *= 0.5f;
+        to_fill = CONSTRAIN(to_fill, 0, here_fill);
+
+        c2_here->fill_level -= to_fill;
+        c2_right->fill_level += to_fill;
+        here_fill -= to_fill;
+      }
+
+      if (here_fill <= 0)
+        continue;
+
+      // Rule #3: Flow above
+      int above = (h - 1) * CELL_COUNT_W + w;
+      cell *c_above = &WORLD[above];
+      cell *c2_above = &SECOND_WORLD[above];
+
+      if (h > 0 && c_above->texture == TEX_WATER) {
+        float above_fill = c_above->fill_level;
+        to_fill = fluid_stable_state(here_fill + above_fill);
+        if (to_fill > FLOW_LEVEL_MIN)
+          to_fill *= 0.5;
+        to_fill = CONSTRAIN(to_fill, 0, fminf(FLOW_LEVEL_MAX, here_fill));
+
+        c2_here->fill_level -= to_fill;
+        c2_above->fill_level += to_fill;
+        here_fill -= to_fill;
       }
     }
   }
 
-  /*for (size_t h = 0; h < CELL_COUNT_H; h++) {*/
-  /*  for (size_t w = 0; w < CELL_COUNT_W; w++) {*/
-  /*    if (w <= 0 || w >= CELL_COUNT_W)*/
-  /*      continue;*/
-  /**/
-  /*    int here = h * CELL_COUNT_W + w;*/
-  /*    cell *c_here = &WORLD[here];*/
-  /*    if (c_here->texture != TEX_WATER)*/
-  /*      continue;*/
-  /**/
-  /*    float here_fill = c_here->fill_level;*/
-  /*    if (here_fill == 0.0f)*/
-  /*      continue;*/
-  /**/
-  /*    int below = (h + 1) * CELL_COUNT_W + w;*/
-  /*    if (below < CELL_COUNT_W * CELL_COUNT_H &&*/
-  /*        WORLD[below].texture == TEX_WATER &&*/
-  /*        WORLD[below].fill_level < 0.975f) {*/
-  /*      continue;*/
-  /*    }*/
-  /**/
-  /*    int left = h * CELL_COUNT_W + w - 1;*/
-  /*    int right = h * CELL_COUNT_W + w + 1;*/
-  /*    cell *c_left = &WORLD[left];*/
-  /*    cell *c_right = &WORLD[right];*/
-  /*    cell *c2_here = &SECOND_WORLD[here];*/
-  /*    cell *c2_left = &SECOND_WORLD[left];*/
-  /*    cell *c2_right = &SECOND_WORLD[right];*/
-  /**/
-  /*    float left_fill = c_left->fill_level;*/
-  /*    float right_fill = c_right->fill_level;*/
-  /**/
-  /*    int can_lfill = c_left->texture != TEX_BUCKET && here_fill >
-   * left_fill;*/
-  /*    int can_rfill = c_right->texture != TEX_BUCKET && here_fill >
-   * right_fill;*/
-  /**/
-  /*    float to_fill = 0;*/
-  /*    float to_lfill = 0;*/
-  /*    float to_rfill = 0;*/
-  /**/
-  /*    if (!can_lfill && !can_rfill)*/
-  /*      continue;*/
-  /**/
-  /*    float how_much;*/
-  /*    if (can_lfill && !can_rfill) {*/
-  /*      how_much = (here_fill - left_fill) / 2;*/
-  /*      to_fill += how_much;*/
-  /*      to_lfill += how_much;*/
-  /*    } else if (!can_lfill && can_rfill) {*/
-  /*      how_much = (here_fill - right_fill) / 2;*/
-  /*      to_fill += how_much;*/
-  /*      to_rfill += how_much;*/
-  /*    } else if (can_lfill && can_rfill) {*/
-  /*      how_much = (here_fill - left_fill) / 4;*/
-  /*      to_fill += how_much;*/
-  /*      to_lfill += how_much;*/
-  /**/
-  /*      how_much = (here_fill - right_fill) / 4;*/
-  /*      to_fill += how_much;*/
-  /*      to_rfill += how_much;*/
-  /*    }*/
-  /**/
-  /*    c2_here->fill_level -= to_fill;*/
-  /*    c2_left->fill_level += to_lfill;*/
-  /*    c2_right->fill_level += to_rfill;*/
-  /*  }*/
-  /*}*/
-  /**/
-  /*// Rule #3: Pressurized*/
-  /*for (size_t h = 0; h < CELL_COUNT_H; h++) {*/
-  /*  for (size_t w = 0; w < CELL_COUNT_W; w++) {*/
-  /*    if (h == 0)*/
-  /*      continue;*/
-  /*    int here = h * CELL_COUNT_W + w;*/
-  /*    int above = (h + 1) * CELL_COUNT_W + w;*/
-  /**/
-  /*    cell *c_here = &WORLD[here];*/
-  /*    cell *c_above = &WORLD[above];*/
-  /*    if (c_here->texture != TEX_WATER || c_above->texture != TEX_WATER)*/
-  /*      continue;*/
-  /**/
-  /*    float here_fill = c_here->fill_level;*/
-  /*    if (here_fill > 1.0f) {*/
-  /*      c_above->fill_level += here_fill - 1.0;*/
-  /*      c_here->fill_level = 1.0;*/
-  /*    }*/
-  /*  }*/
-  /*}*/
   WORLD_MOV(SECOND_WORLD, WORLD);
 }
 

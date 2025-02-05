@@ -19,14 +19,10 @@ typedef struct {
   float r, g, b;
 } color;
 
-#define COLOR_WHITE                                                            \
-  (color) { .r = 255, .g = 255, .b = 255 }
-#define COLOR_GRAY                                                             \
-  (color) { .r = 80, .g = 80, .b = 80 }
-#define COLOR_BLACK                                                            \
-  (color) { .r = 0, .g = 0, .b = 0 }
-#define COLOR_LBLUE                                                            \
-  (color) { .r = 173, .g = 216, .b = 230 }
+#define COLOR_WHITE (color){.r = 255, .g = 255, .b = 255}
+#define COLOR_GRAY (color){.r = 80, .g = 80, .b = 80}
+#define COLOR_BLACK (color){.r = 0, .g = 0, .b = 0}
+#define COLOR_LBLUE (color){.r = 173, .g = 216, .b = 230}
 
 #define WORLD_MOV(W1, W2)                                                      \
   do {                                                                         \
