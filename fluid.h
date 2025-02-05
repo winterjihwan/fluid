@@ -10,8 +10,8 @@
 #define CELL_COUNT_H (WINDOW_H / CELL_SIZE)
 #define CELL_SIZE 20
 
-#define FLOW_LEVEL_MAX 1.0
-#define FLOW_LEVEL_MIN 0.0001
+#define FILL_LEVEL_MAX 1.0
+#define FILL_LEVEL_MIN 0.0001
 #define FLOW_SPEED_MAX 1.0
 #define MAX_COMPRESS 0.02
 
