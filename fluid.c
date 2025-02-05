@@ -45,12 +45,9 @@ static void fluid_render_cell(SDL_Renderer *renderer, cell *c) {
     c->flow_down = 0;
   }
 
-  float fh = fill_level * CELL_SIZE;
-  int ih = (int)fh;
-  int ih_offs = CELL_SIZE - ih;
-  int y =
-      c->texture == TEX_WATER ? c->y * CELL_SIZE + ih_offs : c->y * CELL_SIZE;
-  int h = c->texture == TEX_WATER ? ih : CELL_SIZE;
+  int h = c->texture == TEX_WATER ? (int)(fill_level * CELL_SIZE) : CELL_SIZE;
+  int y = c->texture == TEX_WATER ? c->y * CELL_SIZE + (CELL_SIZE - h)
+                                  : c->y * CELL_SIZE;
   SDL_RenderFillRect(
       renderer,
       &(SDL_Rect){.x = c->x * CELL_SIZE, .y = y, .w = CELL_SIZE, .h = h});
@@ -82,14 +79,14 @@ void fluid_initialize_static(SDL_Renderer *renderer) {
   }
 }
 
-float fluid_stable_state(float flow_level) {
-  if (flow_level <= 1) {
+float fluid_stable_state(float total_fill_level) {
+  if (total_fill_level <= 1) {
     return 1;
-  } else if (flow_level < 2 * FILL_LEVEL_MAX + MAX_COMPRESS) {
-    return (FILL_LEVEL_MAX * FILL_LEVEL_MAX + flow_level * MAX_COMPRESS) /
+  } else if (total_fill_level < 2 * FILL_LEVEL_MAX + MAX_COMPRESS) {
+    return (FILL_LEVEL_MAX * FILL_LEVEL_MAX + total_fill_level * MAX_COMPRESS) /
            (FILL_LEVEL_MAX + MAX_COMPRESS);
   } else {
-    return (flow_level + MAX_COMPRESS) / 2;
+    return (total_fill_level + MAX_COMPRESS) / 2;
   }
 }
 
