@@ -100,13 +100,12 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
       cell *c_below = &WORLD[below];
       cell *c2_below = &SECOND_WORLD[below];
 
-      if (below < CELL_COUNT_W * CELL_COUNT_H &&
-          c_below->texture == TEX_WATER) {
+      if (h < CELL_COUNT_H - 1 && c_below->texture == TEX_WATER) {
         float below_fill = c_below->fill_level;
         to_fill = fluid_stable_state(here_fill + below_fill) - below_fill;
         if (to_fill > FLOW_LEVEL_MIN)
           to_fill *= 0.5;
-        to_fill = CONSTRAIN(to_fill, 0, fminf(FLOW_LEVEL_MAX, here_fill));
+        to_fill = CONSTRAIN(to_fill, 0, fminf(FLOW_SPEED_MAX, here_fill));
 
         c2_here->fill_level -= to_fill;
         c2_below->fill_level += to_fill;
@@ -139,7 +138,7 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
       if (here_fill <= 0)
         continue;
 
-      if (w < CELL_COUNT_H - 1 && c_right->texture == TEX_WATER) {
+      if (w < CELL_COUNT_W - 1 && c_right->texture == TEX_WATER) {
         to_fill = (c_here->fill_level - c_right->fill_level) / 4;
         if (to_fill > FLOW_LEVEL_MIN)
           to_fill *= 0.5f;
@@ -160,10 +159,10 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
 
       if (h > 0 && c_above->texture == TEX_WATER) {
         float above_fill = c_above->fill_level;
-        to_fill = fluid_stable_state(here_fill + above_fill);
+        to_fill = here_fill - fluid_stable_state(here_fill + above_fill);
         if (to_fill > FLOW_LEVEL_MIN)
           to_fill *= 0.5;
-        to_fill = CONSTRAIN(to_fill, 0, fminf(FLOW_LEVEL_MAX, here_fill));
+        to_fill = CONSTRAIN(to_fill, 0, fminf(FLOW_SPEED_MAX, here_fill));
 
         c2_here->fill_level -= to_fill;
         c2_above->fill_level += to_fill;
