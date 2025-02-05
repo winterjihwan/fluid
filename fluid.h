@@ -19,10 +19,16 @@ typedef struct {
   float r, g, b;
 } color;
 
-#define COLOR_WHITE (color){.r = 255, .g = 255, .b = 255}
-#define COLOR_GRAY (color){.r = 80, .g = 80, .b = 80}
-#define COLOR_BLACK (color){.r = 0, .g = 0, .b = 0}
-#define COLOR_LBLUE (color){.r = 173, .g = 216, .b = 230}
+#define COLOR_WHITE                                                            \
+  (color) { .r = 255, .g = 255, .b = 255 }
+#define COLOR_GRAY                                                             \
+  (color) { .r = 80, .g = 80, .b = 80 }
+#define COLOR_BLACK                                                            \
+  (color) { .r = 0, .g = 0, .b = 0 }
+#define COLOR_LBLUE                                                            \
+  (color) { .r = 173, .g = 216, .b = 230 }
+#define COLOR_DBLUE                                                            \
+  (color) { .r = 91, .g = 103, .b = 218 }
 
 #define WORLD_MOV(W1, W2)                                                      \
   do {                                                                         \
@@ -31,6 +37,25 @@ typedef struct {
   } while (0);
 
 #define CONSTRAIN(v, min, max) ((v < min) ? min : (v > max) ? max : v)
+#define CONSTRAINF(v, min, max) ((v < min) ? min : (v > max) ? max : v)
+
+static inline color color_mul(color c1, float n) {
+  return (color){.r = c1.r * n, .g = c1.g * n, .b = c1.b * n};
+}
+
+static inline color color_add(color c1, color c2) {
+  return (color){.r = c1.r * c2.r, .g = c1.g + c2.g, .b = c1.b + c2.b};
+}
+
+// t: (0, 0)
+static inline color color_lerp(color a, color b, float t) {
+  float _t = 1 - t;
+  return (color){
+      .r = a.r * t + b.r * _t,
+      .g = a.g * t + b.g * _t,
+      .b = a.b * t + b.b * _t,
+  };
+}
 
 typedef enum {
   TEX_BUCKET,

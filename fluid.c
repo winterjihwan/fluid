@@ -31,8 +31,12 @@ static color fluid_tex_color(const texture t) {
 }
 
 static void fluid_render_cell(SDL_Renderer *renderer, cell *c) {
-  color color = fluid_tex_color(c->texture);
-  fluid_color_set(renderer, &color);
+  color col = fluid_tex_color(c->texture);
+  if (c->texture == TEX_WATER && c->fill_level > 1.0f) {
+    float fl = CONSTRAIN(c->fill_level, 1.0f, 1.2f);
+    col = color_lerp(COLOR_BLACK, col, (fl - 1.0f) / 0.2f);
+  }
+  fluid_color_set(renderer, &col);
 
   float fill_level = c->fill_level;
   if (c->fill_level < FILL_LEVEL_MIN) {
