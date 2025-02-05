@@ -53,12 +53,12 @@ static void fluid_render_world(SDL_Renderer *renderer) {
 }
 
 static void fluid_cell_update(SDL_Renderer *renderer, int x, int y,
-                              texture texture) {
+                              texture texture, float fill_level) {
   x = x / CELL_SIZE;
   y = y / CELL_SIZE;
   WORLD[y * CELL_COUNT_W + x].texture = texture;
   if (texture == TEX_WATER) {
-    WORLD[y * CELL_COUNT_W + x].fill_level = 1.0;
+    WORLD[y * CELL_COUNT_W + x].fill_level = fill_level;
   }
 }
 
@@ -182,11 +182,12 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
 void fluid_event_handle(SDL_Renderer *renderer, SDL_Event *e) {
   static int d;
   static texture texture = TEX_WATER;
+  static float fill_level = 1.0f;
   if (e->type == SDL_MOUSEBUTTONDOWN)
     d = 1;
   if (e->type == SDL_MOUSEMOTION && d) {
     color c;
-    fluid_cell_update(renderer, e->motion.x, e->motion.y, texture);
+    fluid_cell_update(renderer, e->motion.x, e->motion.y, texture, fill_level);
   }
   if (e->type == SDL_MOUSEBUTTONUP)
     d = 0;
@@ -195,6 +196,10 @@ void fluid_event_handle(SDL_Renderer *renderer, SDL_Event *e) {
       texture = TEX_BUCKET;
     } else if (e->key.keysym.scancode == SDL_SCANCODE_2) {
       texture = TEX_WATER;
+      fill_level = 1.0f;
+    } else if (e->key.keysym.scancode == SDL_SCANCODE_3) {
+      texture = TEX_WATER;
+      fill_level = 0.0f;
     }
     if (e->key.keysym.scancode == SDL_SCANCODE_N && !e->key.repeat) {
       fluid_simulate_step(renderer);
