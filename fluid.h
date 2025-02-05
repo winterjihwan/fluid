@@ -10,25 +10,20 @@
 #define CELL_COUNT_H (WINDOW_H / CELL_SIZE)
 #define CELL_SIZE 20
 
-#define FILL_LEVEL_MAX 1.0
-#define FILL_LEVEL_MIN 0.0001
-#define FLOW_SPEED_MAX 1.0
-#define MAX_COMPRESS 0.02
+#define FILL_LEVEL_MAX 1.0f
+#define FILL_LEVEL_MIN 0.0001f
+#define FLOW_SPEED_MAX 1.0f
+#define MAX_COMPRESS 0.02f
 
 typedef struct {
   float r, g, b;
 } color;
 
-#define COLOR_WHITE                                                            \
-  (color) { .r = 255, .g = 255, .b = 255 }
-#define COLOR_GRAY                                                             \
-  (color) { .r = 80, .g = 80, .b = 80 }
-#define COLOR_BLACK                                                            \
-  (color) { .r = 0, .g = 0, .b = 0 }
-#define COLOR_LBLUE                                                            \
-  (color) { .r = 173, .g = 216, .b = 230 }
-#define COLOR_DBLUE                                                            \
-  (color) { .r = 91, .g = 103, .b = 218 }
+#define COLOR_WHITE (color){.r = 255, .g = 255, .b = 255}
+#define COLOR_GRAY (color){.r = 80, .g = 80, .b = 80}
+#define COLOR_BLACK (color){.r = 0, .g = 0, .b = 0}
+#define COLOR_LBLUE (color){.r = 173, .g = 216, .b = 230}
+#define COLOR_DBLUE (color){.r = 91, .g = 103, .b = 218}
 
 #define WORLD_MOV(W1, W2)                                                      \
   do {                                                                         \
@@ -68,6 +63,8 @@ typedef struct {
 
   // [0, 1]
   float fill_level;
+
+  int flow_down;
 } cell;
 
 void fluid_initialize_static(SDL_Renderer *renderer);

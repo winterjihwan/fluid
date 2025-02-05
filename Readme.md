@@ -2,7 +2,7 @@
 
 Implementation of 2d liquid simulator
 
-![Demo](fluid.gif)
+![Fluid Demo](fluid.png)
 
 ```shell
 $ make

@@ -10,14 +10,15 @@ static cell WORLD[CELL_COUNT_H * CELL_COUNT_W] = {0};
 static cell SECOND_WORLD[CELL_COUNT_H * CELL_COUNT_W] = {0};
 
 static void fluid_color_set(SDL_Renderer *renderer, const color *color) {
-  SDL_SetRenderDrawColor(renderer, color->r, color->g, color->b, 255);
+  SDL_SetRenderDrawColor(renderer, (Uint8)color->r, (Uint8)color->g,
+                         (Uint8)color->b, 255);
 }
 
 static void fluid_render_grid(SDL_Renderer *renderer) {
   fluid_color_set(renderer, &COLOR_GRAY);
-  for (size_t i = CELL_SIZE; i <= WINDOW_H; i += CELL_SIZE)
+  for (int i = CELL_SIZE; i <= WINDOW_H; i += CELL_SIZE)
     SDL_RenderDrawLine(renderer, 0, i, WINDOW_W, i + 1);
-  for (size_t i = CELL_SIZE; i <= WINDOW_W; i += CELL_SIZE)
+  for (int i = CELL_SIZE; i <= WINDOW_W; i += CELL_SIZE)
     SDL_RenderDrawLine(renderer, i, 0, i + 1, WINDOW_H);
 }
 
@@ -38,14 +39,18 @@ static void fluid_render_cell(SDL_Renderer *renderer, cell *c) {
   }
   fluid_color_set(renderer, &col);
 
-  float fill_level = c->fill_level;
-  if (c->fill_level < FILL_LEVEL_MIN) {
-    fill_level = 0.0f;
+  float fill_level = CONSTRAIN(c->fill_level, 0, 1.0f);
+  if (c->flow_down) {
+    fill_level = 1.0f;
+    c->flow_down = 0;
   }
 
-  int y = c->texture == TEX_WATER ? (c->y + (1 - c->fill_level)) * CELL_SIZE
-                                  : c->y * CELL_SIZE;
-  int h = c->texture == TEX_WATER ? c->fill_level * CELL_SIZE : CELL_SIZE;
+  float fh = fill_level * CELL_SIZE;
+  int ih = (int)fh;
+  int ih_offs = CELL_SIZE - ih;
+  int y =
+      c->texture == TEX_WATER ? c->y * CELL_SIZE + ih_offs : c->y * CELL_SIZE;
+  int h = c->texture == TEX_WATER ? ih : CELL_SIZE;
   SDL_RenderFillRect(
       renderer,
       &(SDL_Rect){.x = c->x * CELL_SIZE, .y = y, .w = CELL_SIZE, .h = h});
@@ -67,8 +72,8 @@ static void fluid_cell_update(SDL_Renderer *renderer, int x, int y,
 }
 
 void fluid_initialize_static(SDL_Renderer *renderer) {
-  for (size_t h = 0; h < CELL_COUNT_H; h++) {
-    for (size_t w = 0; w < CELL_COUNT_W; w++) {
+  for (int h = 0; h < CELL_COUNT_H; h++) {
+    for (int w = 0; w < CELL_COUNT_W; w++) {
       WORLD[h * CELL_COUNT_W + w] =
           (cell){.x = w, .y = h, .texture = TEX_WATER, .fill_level = 0.0};
       SECOND_WORLD[h * CELL_COUNT_W + w] =
@@ -91,8 +96,8 @@ float fluid_stable_state(float flow_level) {
 void fluid_simulate_step(SDL_Renderer *renderer) {
   WORLD_MOV(WORLD, SECOND_WORLD);
 
-  for (size_t h = 0; h < CELL_COUNT_H; h++) {
-    for (size_t w = 0; w < CELL_COUNT_W; w++) {
+  for (int h = 0; h < CELL_COUNT_H; h++) {
+    for (int w = 0; w < CELL_COUNT_W; w++) {
       int here = h * CELL_COUNT_W + w;
       cell *c_here = &WORLD[here];
       cell *c2_here = &SECOND_WORLD[here];
@@ -113,12 +118,22 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
         float below_fill = c_below->fill_level;
         to_fill = fluid_stable_state(here_fill + below_fill) - below_fill;
         if (to_fill > FILL_LEVEL_MIN)
-          to_fill *= 0.5;
+          to_fill *= 0.5f;
         to_fill = CONSTRAIN(to_fill, 0, fminf(FLOW_SPEED_MAX, here_fill));
+
+        // dripping effect
+        if (to_fill < FILL_LEVEL_MIN)
+          to_fill = 0.0f;
 
         c2_here->fill_level -= to_fill;
         c2_below->fill_level += to_fill;
         here_fill -= to_fill;
+
+        if (to_fill > 0.0f)
+          c2_below->flow_down = 1;
+        else
+          c2_below->flow_down = 0;
+      } else {
       }
 
       if (here_fill <= 0)
@@ -170,7 +185,7 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
         float above_fill = c_above->fill_level;
         to_fill = here_fill - fluid_stable_state(here_fill + above_fill);
         if (to_fill > FILL_LEVEL_MIN)
-          to_fill *= 0.5;
+          to_fill *= 0.5f;
         to_fill = CONSTRAIN(to_fill, 0, fminf(FLOW_SPEED_MAX, here_fill));
 
         c2_here->fill_level -= to_fill;
