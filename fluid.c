@@ -29,17 +29,25 @@ static color fluid_tex_color(const texture t) {
   }
 }
 
-static void fluid_render_cell(SDL_Renderer *renderer, cell *cell) {
-  color color = fluid_tex_color(cell->texture);
+static void fluid_render_cell(SDL_Renderer *renderer, cell *c) {
+  color color = fluid_tex_color(c->texture);
   fluid_color_set(renderer, &color);
 
-  int y = cell->texture == TEX_WATER
-              ? (cell->y + (1 - cell->fill_level)) * CELL_SIZE
-              : cell->y * CELL_SIZE;
-  int h = cell->texture == TEX_WATER ? cell->fill_level * CELL_SIZE : CELL_SIZE;
+  float fill_level = c->fill_level;
+  if (c->y > 0 && c->y < CELL_COUNT_H - 1 && c->x > 0 &&
+      c->x < CELL_COUNT_W - 1) {
+    cell *c_above = &WORLD[c->y * CELL_COUNT_W + c->x];
+    cell *c_below = &WORLD[c->y * CELL_COUNT_W + c->x];
+    if (c_above->texture == TEX_WATER && c_below->texture == TEX_WATER)
+      fill_level = 1.0f;
+  }
+
+  int y = c->texture == TEX_WATER ? (c->y + (1 - c->fill_level)) * CELL_SIZE
+                                  : c->y * CELL_SIZE;
+  int h = c->texture == TEX_WATER ? c->fill_level * CELL_SIZE : CELL_SIZE;
   SDL_RenderFillRect(
       renderer,
-      &(SDL_Rect){.x = cell->x * CELL_SIZE, .y = y, .w = CELL_SIZE, .h = h});
+      &(SDL_Rect){.x = c->x * CELL_SIZE, .y = y, .w = CELL_SIZE, .h = h});
 }
 
 static void fluid_render_world(SDL_Renderer *renderer) {
@@ -133,11 +141,10 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
         continue;
 
       int below = (h + 1) * CELL_COUNT_W + w;
-      if (below < CELL_COUNT_W * CELL_COUNT_H) {
-        if (WORLD[below].texture == TEX_WATER) {
-          if (WORLD[below].fill_level < 0.975f)
-            continue;
-        }
+      if (below < CELL_COUNT_W * CELL_COUNT_H &&
+          WORLD[below].texture == TEX_WATER &&
+          WORLD[below].fill_level < 0.975f) {
+        continue;
       }
 
       int left = h * CELL_COUNT_W + w - 1;
