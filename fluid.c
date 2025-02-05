@@ -68,8 +68,12 @@ void fluid_initialize_static(SDL_Renderer *renderer) {
   }
 }
 
+void fluid_flow_side(SDL_Renderer *renderer) {}
+
 void fluid_simulate_step(SDL_Renderer *renderer) {
   WORLD_MOV(WORLD, SECOND_WORLD);
+
+  // Rule #1: Flow below
   for (size_t h = 0; h < CELL_COUNT_H; h++) {
     for (size_t w = 0; w < CELL_COUNT_W; w++) {
       int here = h * CELL_COUNT_W + w;
@@ -81,7 +85,6 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
       if (here_fill == 0.0f)
         continue;
 
-      // Rule #1: Flow below
       int below = (h + 1) * CELL_COUNT_W + w;
       cell *c2_here = &SECOND_WORLD[here];
       cell *c_below = &WORLD[below];
@@ -95,21 +98,53 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
       }
 
       float below_fill = c_below->fill_level;
-      if (here_fill <= below_fill)
-        continue;
+      float below_free = 1.0f - below_fill;
 
-      float to_fill = here_fill - below_fill;
+      if (below_free <= 0.0f || here_fill <= 0.0f) {
+        continue;
+      }
+
+      float to_fill;
+      if (below_free >= here_fill) {
+        to_fill = here_fill;
+      } else {
+        to_fill = below_free;
+      }
+
       c2_here->fill_level -= to_fill;
       c2_below->fill_level += to_fill;
+      continue;
+    }
+  }
 
-      // Rule #2: Flow left and right
+  // Rule #2: Flow left and right
+  for (size_t h = 0; h < CELL_COUNT_H; h++) {
+    for (size_t w = 0; w < CELL_COUNT_W; w++) {
       if (w <= 0 || w >= CELL_COUNT_W)
         continue;
+
+      int here = h * CELL_COUNT_W + w;
+      cell *c_here = &WORLD[here];
+      if (c_here->texture != TEX_WATER)
+        continue;
+
+      float here_fill = c_here->fill_level;
+      if (here_fill == 0.0f)
+        continue;
+
+      int below = (h + 1) * CELL_COUNT_W + w;
+      if (below < CELL_COUNT_W * CELL_COUNT_H) {
+        if (WORLD[below].texture == TEX_WATER) {
+          if (WORLD[below].fill_level < 0.975f)
+            continue;
+        }
+      }
 
       int left = h * CELL_COUNT_W + w - 1;
       int right = h * CELL_COUNT_W + w + 1;
       cell *c_left = &WORLD[left];
       cell *c_right = &WORLD[right];
+      cell *c2_here = &SECOND_WORLD[here];
       cell *c2_left = &SECOND_WORLD[left];
       cell *c2_right = &SECOND_WORLD[right];
 
@@ -119,14 +154,14 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
       int can_lfill = c_left->texture != TEX_BUCKET && here_fill > left_fill;
       int can_rfill = c_right->texture != TEX_BUCKET && here_fill > right_fill;
 
-      to_fill = 0;
+      float to_fill = 0;
       float to_lfill = 0;
       float to_rfill = 0;
 
       if (!can_lfill && !can_rfill)
         continue;
 
-      int how_much;
+      float how_much;
       if (can_lfill && !can_rfill) {
         how_much = (here_fill - left_fill) / 2;
         to_fill += how_much;
@@ -150,36 +185,24 @@ void fluid_simulate_step(SDL_Renderer *renderer) {
       c2_right->fill_level += to_rfill;
     }
   }
-  WORLD_MOV(SECOND_WORLD, WORLD);
-}
 
-void fluid_simulate_above_step(SDL_Renderer *renderer) {
-  WORLD_MOV(WORLD, SECOND_WORLD);
+  // Rule #3: Pressurized
   for (size_t h = 0; h < CELL_COUNT_H; h++) {
     for (size_t w = 0; w < CELL_COUNT_W; w++) {
+      if (h == 0)
+        continue;
       int here = h * CELL_COUNT_W + w;
-      cell *c = &WORLD[here];
-      if (c->texture != TEX_WATER)
+      int above = (h + 1) * CELL_COUNT_W + w;
+
+      cell *c_here = &WORLD[here];
+      cell *c_above = &WORLD[above];
+      if (c_here->texture != TEX_WATER || c_above->texture != TEX_WATER)
         continue;
 
-      float here_fill = c->fill_level;
-      if (here_fill == 0)
-        continue;
-
-      if (h <= 0) {
-        fprintf(stdout, "Overflow water above screen\n");
-        exit(1);
-      }
-
-      int above = (h - 1) * CELL_COUNT_W + w;
-      cell *second_c = &SECOND_WORLD[here];
-      cell *second_c_above = &SECOND_WORLD[above];
-
-      // Rule #3: Flow above
-      if (here_fill > 1) {
-        float to_fill = here_fill - 1.0;
-        second_c->fill_level -= to_fill;
-        second_c_above->fill_level += to_fill;
+      float here_fill = c_here->fill_level;
+      if (here_fill > 1.0f) {
+        c_above->fill_level += here_fill - 1.0;
+        c_here->fill_level = 1.0;
       }
     }
   }
